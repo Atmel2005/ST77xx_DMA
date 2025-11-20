@@ -298,5 +298,3 @@ an Ihre Hardware an.
 
 ---
 
-Weitere Details (insbesondere auf Russisch) finden Sie in der Datei
-`ST77xxDMA_USAGE_RU.txt` im Wurzelverzeichnis des Repositories.
