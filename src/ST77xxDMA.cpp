@@ -1,6 +1,18 @@
 #include "ST77xxDMA.h"
 #include <string.h>
-#include <pgmspace.h>
+
+#if defined(ESP8266) || defined(ESP32)
+  #include <pgmspace.h>
+#elif defined(ARDUINO_ARCH_AVR)
+  #include <avr/pgmspace.h>
+#endif
+
+#ifndef pgm_read_byte
+  #define pgm_read_byte(addr) (*(const uint8_t *)(addr))
+#endif
+#ifndef pgm_read_word
+  #define pgm_read_word(addr) (*(const uint16_t *)(addr))
+#endif
 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ESP32)
 #include <esp32-hal-ledc.h>
@@ -1452,13 +1464,24 @@ void ST77xxDMA::writeMADCTL() {
       case 3: mad = MADCTL_MY | MADCTL_MV;                      break;
     }
   } else {
-    switch (_rotation & 3) {
-      // Standard ST77xx orientation mapping
-      // 0: MY|MX, 1: MY|MV, 2: 0, 3: MX|MV
-      case 0: mad = MADCTL_MX | MADCTL_MY;                break;
-      case 1: mad = MADCTL_MY | MADCTL_MV;                break;
-      case 2: mad = 0;                                    break;
-      case 3: mad = MADCTL_MX | MADCTL_MV;                break;
+    if (_cfg.controller == ST77xxController::ST7789) {
+      // ST7789: mirror TFT_eSPI's rotation mapping so CGRAM offsets match exactly.
+      // rotation 0: 0, 1: MX|MV, 2: MX|MY, 3: MV|MY
+      switch (_rotation & 3) {
+        case 0: mad = 0;                                   break;
+        case 1: mad = MADCTL_MX | MADCTL_MV;               break;
+        case 2: mad = MADCTL_MX | MADCTL_MY;               break;
+        case 3: mad = MADCTL_MV | MADCTL_MY;               break;
+      }
+    } else {
+      // Generic ST77xx mapping (kept for ST7735 and others to preserve behavior)
+      switch (_rotation & 3) {
+        // 0: MY|MX, 1: MY|MV, 2: 0, 3: MX|MV
+        case 0: mad = MADCTL_MX | MADCTL_MY;               break;
+        case 1: mad = MADCTL_MY | MADCTL_MV;               break;
+        case 2: mad = 0;                                   break;
+        case 3: mad = MADCTL_MX | MADCTL_MV;               break;
+      }
     }
   }
   // Применить пользовательское зеркалирование поверх текущей ориентации
@@ -1492,7 +1515,8 @@ void ST77xxDMA::panelInitBasic() {
   // - Otherwise, default to INVOFF
   if (_cfg.controller == ST77xxController::NV3007 ||
       (_cfg.controller == ST77xxController::ST7789 &&
-       (_cfg.panel == ST77xxPanel::ST7789_170x320 || _cfg.panel == ST77xxPanel::ST7789_172x320 || _cfg.panel == ST77xxPanel::ST7789_240x320))) {
+       (_cfg.panel == ST77xxPanel::ST7789_170x320 || _cfg.panel == ST77xxPanel::ST7789_172x320 || _cfg.panel == ST77xxPanel::ST7789_240x320 ||
+        _cfg.panel == ST77xxPanel::ST7789_135x240 || _cfg.panel == ST77xxPanel::ST7789_240x240))) {
     sendCmd(ST77XX_INVON);
   } else {
     sendCmd(ST77XX_INVOFF);
@@ -2260,21 +2284,33 @@ void ST77xxDMA::setRotation(uint8_t r) {
   // For NV3007, swap logical W/H on rotations 0 and 2 (landscape orientations)
   // per module behavior; keep 1 and 3 without swap.
   if (_cfg.controller == ST77xxController::NV3007) {
-    if ( (_rotation == 0) || (_rotation == 2) ) { _lcdW = baseH; _lcdH = baseW; }
-    else                                         { _lcdW = baseW; _lcdH = baseH; }
+    if ((_rotation == 0) || (_rotation == 2)) {
+      _lcdW = baseH;
+      _lcdH = baseW;
+    } else {
+      _lcdW = baseW;
+      _lcdH = baseH;
+    }
   } else {
-    if (_rotation & 1) { _lcdW = baseH; _lcdH = baseW; }
-    else               { _lcdW = baseW; _lcdH = baseH; }
+    if (_rotation & 1) {
+      _lcdW = baseH;
+      _lcdH = baseW;
+    } else {
+      _lcdW = baseW;
+      _lcdH = baseH;
+    }
   }
 
   // Compute effective start offsets per rotation (center crops for narrow panels)
-  _xstart = _colstart; _ystart = _rowstart;
+  _xstart = _colstart;
+  _ystart = _rowstart;
 
   // NV3007 reference has no offsets; force to zero
   if (_cfg.controller == ST77xxController::NV3007) {
     _xstart = 0;
     _ystart = 0;
   }
+
   if (_cfg.controller == ST77xxController::ST7789) {
     if (_cfg.panel == ST77xxPanel::ST7789_170x320) {
       // Panel memory is 240x320; visible area 170x320 -> center with 35px margin horizontally
@@ -2303,6 +2339,22 @@ void ST77xxDMA::setRotation(uint8_t r) {
         case 2: _xstart = _colstart + xoff; _ystart = _rowstart + yoff; break;
         case 3: _xstart = _colstart + yoff; _ystart = _rowstart + xoff; break;
       }
+    } else if (_cfg.panel == ST77xxPanel::ST7789_240x240) {
+      // Many 240x240 ST7789 modules use a 240x320 RAM with a vertical offset of 80 pixels
+      switch (_rotation & 3) {
+        case 0: _xstart = _colstart + 0;  _ystart = _rowstart + 0;  break; // portrait
+        case 1: _xstart = _colstart + 0;  _ystart = _rowstart + 0;  break; // landscape
+        case 2: _xstart = _colstart + 0;  _ystart = _rowstart + 80; break; // inverted portrait
+        case 3: _xstart = _colstart + 80; _ystart = _rowstart + 0;  break; // inverted landscape
+      }
+    } else if (_cfg.panel == ST77xxPanel::ST7789_135x240) {
+      // 1.14" 135x240 ST7789: typical RAM is 240x320 with offsets ~52x40
+      switch (_rotation & 3) {
+        case 0: _xstart = _colstart + 52; _ystart = _rowstart + 40; break; // portrait
+        case 1: _xstart = _colstart + 40; _ystart = _rowstart + 53; break; // landscape
+        case 2: _xstart = _colstart + 53; _ystart = _rowstart + 40; break; // inverted portrait
+        case 3: _xstart = _colstart + 40; _ystart = _rowstart + 52; break; // inverted landscape
+      }
     }
   } else if (_cfg.controller == ST77xxController::NV3007) {
     // NV3007 glass (e.g., 428x142) requires fixed RAM offsets per rotation
@@ -2318,6 +2370,19 @@ void ST77xxDMA::setRotation(uint8_t r) {
       case 3: _xstart = _colstart + 0;  _ystart = _rowstart + 12; break;
     }
   }
+
+  if (_cfg.controller == ST77xxController::ST7735 &&
+      _cfg.panel == ST77xxPanel::ST7735_80x160) {
+    // Many 0.96" 80x160 ST7735S modules have a 132x162 RAM; visible window is centered
+    const uint8_t xoff = 26, yoff = 1;
+    switch (_rotation & 3) {
+      case 0: _xstart = _colstart + xoff; _ystart = _rowstart + yoff; break;
+      case 1: _xstart = _colstart + yoff; _ystart = _rowstart + xoff; break;
+      case 2: _xstart = _colstart + xoff; _ystart = _rowstart + yoff; break;
+      case 3: _xstart = _colstart + yoff; _ystart = _rowstart + xoff; break;
+    }
+  }
+
   writeMADCTL();
 }
 

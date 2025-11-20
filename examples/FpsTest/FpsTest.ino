@@ -22,8 +22,8 @@
   #include <hardware/clocks.h>
 #endif
 // ---- Select panel here ----
-// Options: ST77xxPanel::ST7735_128x160, ST7789_240x320, ST7789_172x320, ST7789_76x284, ST7789_170x320, NV3007_428x142
-static const ST77xxPanel PANEL = ST77xxPanel::NV3007_428x142; // change as needed
+// Options: ST77xxPanel::ST7735_128x160, ST7789_240x320, ST7789_172x320, ST7789_76x284, ST7789_170x320, ST7789_135x240, ST7789_240x240, ST7735_80x160, NV3007_428x142
+static const ST77xxPanel PANEL = ST77xxPanel::ST7789_240x240; // change as needed
  
 // ---- Pins per platform (adjust for your wiring) ----
 #if defined(ARDUINO_ARCH_ESP32)
