@@ -1128,7 +1128,7 @@ void ST77xxDMA::applyPanelPreset() {
       _lcdW = 240; _lcdH = 240; _colstart = 0; _rowstart = 0; break;
     case ST77xxPanel::ST7735_80x160:
       _cfg.controller = ST77xxController::ST7735;
-      _lcdW = 80; _lcdH = 160; _colstart = 0; _rowstart = 0; break;
+      _lcdW = 80; _lcdH = 160; _colstart = 0; _rowstart = 0; _cfg.bgr = true; break;
     case ST77xxPanel::NV3007_428x142:
       _cfg.controller = ST77xxController::NV3007;
       _lcdW = 428; _lcdH = 142; _colstart = 0; _rowstart = 0; _bgr = false; break;
@@ -2374,7 +2374,7 @@ void ST77xxDMA::setRotation(uint8_t r) {
   if (_cfg.controller == ST77xxController::ST7735 &&
       _cfg.panel == ST77xxPanel::ST7735_80x160) {
     // Many 0.96" 80x160 ST7735S modules have a 132x162 RAM; visible window is centered
-    const uint8_t xoff = 26, yoff = 1;
+    const uint8_t xoff = 24, yoff = 0;
     switch (_rotation & 3) {
       case 0: _xstart = _colstart + xoff; _ystart = _rowstart + yoff; break;
       case 1: _xstart = _colstart + yoff; _ystart = _rowstart + xoff; break;

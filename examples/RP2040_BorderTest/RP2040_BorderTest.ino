@@ -30,7 +30,7 @@
 
 // ---- Select panel preset here ----
 // Change this line if you test another module.
-static const ST77xxPanel PANEL = ST77xxPanel::ST7789_240x240;
+static const ST77xxPanel PANEL = ST77xxPanel::ST7735_80x160;
 
 static ST77xxDMA* tft = nullptr;
 using C = ST77xxDMA::Colors;
@@ -98,7 +98,7 @@ void setup() {
 
   cfg.use_hw_spi = true;        // Use RP2040 hardware SPI0
   cfg.spi_hz     = 80;          // 80 MHz (internally treated as MHz shorthand)
-  cfg.rotation   = 1;           // Start in landscape; change 0..3 to test offsets
+  cfg.rotation   = 3;           // Start in landscape; change 0..3 to test offsets
   cfg.bgr        = false;       // set true if colors swapped
   cfg.debug      = false;
 
