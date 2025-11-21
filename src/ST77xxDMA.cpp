@@ -1148,10 +1148,8 @@ void ST77xxDMA::applyPanelPreset() {
     if ((_rotation & 3) == 1) { _mirrorX = true; _mirrorY = true; }
     else { _mirrorX = false; _mirrorY = false; }
   } else if (_cfg.panel == ST77xxPanel::ST7789_170x320) {
-    // Many 1.9" 170x320 modules require horizontal + vertical mirror at rotation=1
-    // to avoid upside-down text while keeping left origin.
-    if ((_rotation & 3) == 1) { _mirrorX = true; _mirrorY = true; }
-    else { _mirrorX = false; _mirrorY = false; }
+    // 170x320: use standard ST7789 rotation mapping, no extra mirroring by default
+    _mirrorX = false; _mirrorY = false;
   } else if (_cfg.panel == ST77xxPanel::ST7789_172x320) {
     // Default: no mirroring for 172x320 modules
     _mirrorX = false; _mirrorY = false;
